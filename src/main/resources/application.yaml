@@ -3,10 +3,15 @@ spring:
     url: jdbc:postgresql://localhost:5432/user_db
     username: postgres
     password: postgres
+    hikari:
+      schema: user_schema
+      connection-init-sql: create schema if not exists user_schema
+      connection-timeout: 10000
   jpa:
     hibernate:
       ddl-auto: none
     show-sql: true
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
   liquibase:
     enabled: true
     change-log: classpath:db/changelog/db.changelog-master.xml
@@ -14,4 +19,9 @@ spring:
     liquibase-schema: public
     user: postgres
     password: postgres
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
 
