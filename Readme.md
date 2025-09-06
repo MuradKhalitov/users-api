@@ -25,17 +25,16 @@ Java 17 + Spring Boot 3 + PostgreSQL + Liquibase + Redis Cache.
        ```  
     2. Запустить приложение:
        ```bash
-       mvn spring-boot:run -Dspring-boot.run.profiles=dev
-       ```  
-       или
+       .\mvnw clean package -DskipTests
+       ```
        ```bash
-       SPRING_PROFILES_ACTIVE=dev java -jar target/user-api-0.0.1-SNAPSHOT.jar
+       java -jar target\user-api-0.0.1-SNAPSHOT.jar --spring.profiles.active=dev
        ```
 
 - **В Docker (профиль docker)**
     1. Собрать jar:
        ```bash
-       mvn -DskipTests package
+       .\mvnw clean package -DskipTests
        ```  
     2. Поднять сервисы (Postgres, Redis и приложение):
        ```bash
@@ -58,3 +57,33 @@ Java 17 + Spring Boot 3 + PostgreSQL + Liquibase + Redis Cache.
   "avatar": "https://via.placeholder.com/150",
   "role": "ROLE_USER"
 }
+``` 
+
+### GET `/api/users?userID={uuid}`
+Получить пользователя  
+
+### PUT `/api/userDetailsUpdate`
+Обновить пользователя.
+
+Пример тела:
+```json
+{
+  "uuid": "user-uuid",
+  "fio": "Иван Иванович",
+  "phoneNumber": "+79005557788",
+  "avatar": "https://via.placeholder.com/300",
+  "role": "ROLE_ADMIN"
+}
+``` 
+
+### DELETE `/api/users?userID={uuid}`
+Удалить пользователя.
+
+## Валидация
+### fio — обязательное поле
+
+### phoneNumber — только + и 10–15 цифр
+
+### avatar — корректный URL
+
+### role — обязательное поле
