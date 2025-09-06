@@ -1,0 +1,347 @@
+{
+  "info": {
+    "name": "User API (CRUD + Cache + Validation)",
+    "_postman_id": "2c9e9ad8-7b7a-4f2d-bd06-16f2b1d1b001",
+    "description": "Полный сценарий проверки CRUD, кэширования (Redis), валидации и ошибок.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080/api" },
+    { "key": "userId", "value": "" },
+    { "key": "badUserId", "value": "11111111-2222-3333-4444-555555555555" }
+  ],
+  "item": [
+    {
+      "name": "1. CREATE user (201)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/createNewUser", "host": ["{{baseUrl}}"], "path": ["createNewUser"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fio\": \"Тест Тестов\",\n  \"phoneNumber\": \"+79001112233\",\n  \"avatar\": \"https://via.placeholder.com/150\",\n  \"role\": \"ROLE_USER\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"201 Created\", function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "const id = pm.response.json().uuid;",
+              "pm.environment.set(\"userId\", id);",
+              "pm.collectionVariables.set(\"userId\", id);",
+              "pm.test(\"Location header present\", function () {",
+              "  pm.expect(pm.response.headers.get('Location')).to.include(id);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. GET user (MISS → SQL)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/users?userID={{userId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["users"],
+          "query": [{ "key": "userID", "value": "{{userId}}" }]
+        }
+      },
+      "event": [
+        { "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"200 OK\", function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Body has same uuid\", function () {",
+              "  pm.expect(pm.response.json().uuid).to.eql(pm.collectionVariables.get('userId'));",
+              "});",
+              "// Смотри логи приложения: это первый GET → должен быть SQL select"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. GET user (HIT → из кэша)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/users?userID={{userId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["users"],
+          "query": [{ "key": "userID", "value": "{{userId}}" }]
+        }
+      },
+      "event": [
+        { "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"200 OK (cache HIT)\", function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "// Во втором GET Hibernate SQL в логах быть не должно, ответ из Redis"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. UPDATE user (200) + Cache PUT",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/userDetailsUpdate", "host": ["{{baseUrl}}"], "path": ["userDetailsUpdate"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"uuid\": \"{{userId}}\",\n  \"fio\": \"Тест Тестов Обновлённый\",\n  \"phoneNumber\": \"+79005557788\",\n  \"avatar\": \"https://via.placeholder.com/300\",\n  \"role\": \"ROLE_ADMIN\"\n}"
+        }
+      },
+      "event": [
+        { "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"200 OK\", function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Updated fields present\", function () {",
+              "  const b = pm.response.json();",
+              "  pm.expect(b.fio).to.eql('Тест Тестов Обновлённый');",
+              "  pm.expect(b.phoneNumber).to.eql('+79005557788');",
+              "  pm.expect(b.role).to.eql('ROLE_ADMIN');",
+              "});",
+              "// Кэш должен сразу содержать обновлённые данные (CachePut)"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. GET after UPDATE (HIT обновлённый)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/users?userID={{userId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["users"],
+          "query": [{ "key": "userID", "value": "{{userId}}" }]
+        }
+      },
+      "event": [
+        { "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"200 OK\", function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Data is updated (from cache)\", function () {",
+              "  const b = pm.response.json();",
+              "  pm.expect(b.fio).to.eql('Тест Тестов Обновлённый');",
+              "  pm.expect(b.phoneNumber).to.eql('+79005557788');",
+              "  pm.expect(b.role).to.eql('ROLE_ADMIN');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. DELETE user (204) + Cache Evict",
+      "request": {
+        "method": "DELETE",
+        "url": {
+          "raw": "{{baseUrl}}/users?userID={{userId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["users"],
+          "query": [{ "key": "userID", "value": "{{userId}}" }]
+        }
+      },
+      "event": [
+        { "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"204 No Content\", function () {",
+              "  pm.response.to.have.status(204);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. GET after DELETE (404)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/users?userID={{userId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["users"],
+          "query": [{ "key": "userID", "value": "{{userId}}" }]
+        }
+      },
+      "event": [
+        { "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"404 Not Found\", function () {",
+              "  pm.response.to.have.status(404);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. CREATE invalid phone (400)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/createNewUser", "host": ["{{baseUrl}}"], "path": ["createNewUser"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fio\": \"Невалид Телефон\",\n  \"phoneNumber\": \"8900-abc-123\",\n  \"avatar\": \"https://via.placeholder.com/150\",\n  \"role\": \"ROLE_USER\"\n}"
+        }
+      },
+      "event": [
+        { "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"400 Bad Request\", function () {",
+              "  pm.response.to.have.status(400);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. CREATE invalid url (400)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/createNewUser", "host": ["{{baseUrl}}"], "path": ["createNewUser"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fio\": \"Невалид URL\",\n  \"phoneNumber\": \"+79001234567\",\n  \"avatar\": \"not-a-url\",\n  \"role\": \"ROLE_USER\"\n}"
+        }
+      },
+      "event": [
+        { "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"400 Bad Request\", function () {",
+              "  pm.response.to.have.status(400);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "10. GET missing param (400)",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "{{baseUrl}}/users", "host": ["{{baseUrl}}"], "path": ["users"] }
+      },
+      "event": [
+        { "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"400 Bad Request\", function () {",
+              "  pm.response.to.have.status(400);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "11. GET invalid UUID (400)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/users?userID=not-a-uuid",
+          "host": ["{{baseUrl}}"],
+          "path": ["users"],
+          "query": [{ "key": "userID", "value": "not-a-uuid" }]
+        }
+      },
+      "event": [
+        { "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"400 Bad Request\", function () {",
+              "  pm.response.to.have.status(400);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "12. UPDATE not found (404)",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/userDetailsUpdate", "host": ["{{baseUrl}}"], "path": ["userDetailsUpdate"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"uuid\": \"{{badUserId}}\",\n  \"fio\": \"Я Не Существую\",\n  \"phoneNumber\": \"+79009998877\",\n  \"avatar\": \"https://via.placeholder.com/150\",\n  \"role\": \"ROLE_USER\"\n}"
+        }
+      },
+      "event": [
+        { "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"404 Not Found\", function () {",
+              "  pm.response.to.have.status(404);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "13. DELETE not found (404)",
+      "request": {
+        "method": "DELETE",
+        "url": {
+          "raw": "{{baseUrl}}/users?userID={{badUserId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["users"],
+          "query": [{ "key": "userID", "value": "{{badUserId}}" }]
+        }
+      },
+      "event": [
+        { "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"404 Not Found\", function () {",
+              "  pm.response.to.have.status(404);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    }
+  ]
+}
