@@ -76,7 +76,10 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(uuid)
                 .orElseThrow(() -> new UserNotFoundException(uuid));
         userRepository.delete(user);
-        // роли намеренно НЕ трогаем (best practices)
+
+        if (userRepository.countByRole(user.getRole()) == 0) {
+            roleRepository.delete(user.getRole());
+        }
     }
 
     private Role resolveOrCreateRole(String roleName) {
