@@ -32,9 +32,20 @@ class UserControllerTest {
     void create_ok_201() throws Exception {
         UUID id = UUID.randomUUID();
         Mockito.when(userService.createUser(any(UserCreateRequestDto.class)))
-                .thenReturn(new UserResponseDto(id, "FIO", "+79001234567", "https://img", "ROLE_USER"));
+                .thenReturn(new UserResponseDto(
+                        id,
+                        "FIO",
+                        "+79001234567",
+                        "test@example.com",
+                        "https://img",
+                        "ROLE_USER"));
 
-        var body = new UserCreateRequestDto("FIO","+79001234567","https://img","ROLE_USER");
+        var body = new UserCreateRequestDto(
+                "FIO",
+                "+79001234567",
+                "test@example.com",
+                "https://img",
+                "ROLE_USER");
 
         mvc.perform(post("/api/createNewUser")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -42,14 +53,21 @@ class UserControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location","/api/users?userID=" + id))
                 .andExpect(jsonPath("$.uuid").value(id.toString()))
+                .andExpect(jsonPath("$.email").value("test@example.com"))
                 .andExpect(jsonPath("$.role").value("ROLE_USER"));
     }
 
     @Test
     void create_validation_400() throws Exception {
-        // Невалидный телефон и URL
+        // Невалидный телефон, email и URL
         var body = """
-        {"fio":"A","phoneNumber":"invalid","avatar":"not-url","role":"ROLE_USER"}
+        {
+            "fio": "A",
+            "phoneNumber": "invalid",
+            "email": "invalid-email",
+            "avatar": "not-url",
+            "role": "ROLE_USER"
+        }
         """;
         mvc.perform(post("/api/createNewUser")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -69,15 +87,29 @@ class UserControllerTest {
     @Test
     void update_ok_200() throws Exception {
         UUID id = UUID.randomUUID();
-        var req = new UserUpdateRequestDto(id, "New FIO","+79005557788","https://img2","ROLE_ADMIN");
+        var req = new UserUpdateRequestDto(
+                id,
+                "New FIO",
+                "+79005557788",
+                "updated@example.com",
+                "https://img2",
+                "ROLE_ADMIN");
+
         Mockito.when(userService.updateUser(any(UserUpdateRequestDto.class)))
-                .thenReturn(new UserResponseDto(id, req.fio(), req.phoneNumber(), req.avatar(), req.role()));
+                .thenReturn(new UserResponseDto(
+                        id,
+                        req.fio(),
+                        req.phoneNumber(),
+                        req.email(),
+                        req.avatar(),
+                        req.role()));
 
         mvc.perform(put("/api/userDetailsUpdate")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(om.writeValueAsString(req)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.fio").value("New FIO"))
+                .andExpect(jsonPath("$.email").value("updated@example.com"))
                 .andExpect(jsonPath("$.role").value("ROLE_ADMIN"));
     }
 }
