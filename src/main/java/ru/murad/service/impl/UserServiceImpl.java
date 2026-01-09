@@ -29,7 +29,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    @CachePut(value = "users", key = "#result.uuid()", unless = "#result == null")
+    @CachePut(value = "users", key = "#result.uuid", unless = "#result == null")
     public UserResponseDto createUser(UserCreateRequestDto request) {
         Role role = resolveOrCreateRole(request.role());
 

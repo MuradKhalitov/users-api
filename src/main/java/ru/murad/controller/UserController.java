@@ -25,7 +25,7 @@ public class UserController {
     public ResponseEntity<UserResponseDto> create(@Valid @RequestBody UserCreateRequestDto request) {
         UserResponseDto created = userService.createUser(request);
         return ResponseEntity
-                .created(URI.create("/api/users?userID=" + created.uuid()))
+                .created(URI.create("/api/users?userID=" + created.getUuid()))
                 .body(created);
     }
 

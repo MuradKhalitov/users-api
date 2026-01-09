@@ -56,7 +56,7 @@ class UserServiceImplTest {
         var dto = new UserCreateRequestDto("FIO","+79001234567","https://img","ROLE_USER");
         var rs = service.createUser(dto);
 
-        assertEquals("ROLE_USER", rs.role());
+        assertEquals("ROLE_USER", rs.getRole());
         verify(roleRepo).save(any(Role.class)); // роль создана
         verify(userRepo).save(any(User.class));
     }
