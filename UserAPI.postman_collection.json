@@ -1,8 +1,8 @@
 {
   "info": {
-    "name": "User API (CRUD + Cache + Validation)",
+    "name": "User API (CRUD + Cache + Validation + HATEOAS)",
     "_postman_id": "2c9e9ad8-7b7a-4f2d-bd06-16f2b1d1b001",
-    "description": "Полный сценарий проверки CRUD, кэширования (Redis), валидации и ошибок.",
+    "description": "Полный сценарий проверки CRUD, кэширования (Redis), валидации, ошибок и HATEOAS.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -16,7 +16,11 @@
       "request": {
         "method": "POST",
         "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": { "raw": "{{baseUrl}}/createNewUser", "host": ["{{baseUrl}}"], "path": ["createNewUser"] },
+        "url": {
+          "raw": "{{baseUrl}}/createNewUser",
+          "host": ["{{baseUrl}}"],
+          "path": ["createNewUser"]
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"fio\": \"Тест Тестов\",\n  \"phoneNumber\": \"+79001112233\",\n  \"avatar\": \"https://via.placeholder.com/150\",\n  \"role\": \"ROLE_USER\"\n}"
@@ -26,18 +30,28 @@
         {
           "listen": "test",
           "script": {
+            "type": "text/javascript",
             "exec": [
               "pm.test(\"201 Created\", function () {",
               "  pm.response.to.have.status(201);",
               "});",
-              "const id = pm.response.json().uuid;",
+              "",
+              "const body = pm.response.json();",
+              "const id = body.user.uuid;",
+              "",
               "pm.environment.set(\"userId\", id);",
               "pm.collectionVariables.set(\"userId\", id);",
+              "",
               "pm.test(\"Location header present\", function () {",
               "  pm.expect(pm.response.headers.get('Location')).to.include(id);",
+              "});",
+              "",
+              "pm.test(\"HATEOAS links present\", function () {",
+              "  pm.expect(body._links).to.have.property('self');",
+              "  pm.expect(body._links).to.have.property('update');",
+              "  pm.expect(body._links).to.have.property('delete');",
               "});"
-            ],
-            "type": "text/javascript"
+            ]
           }
         }
       ]
@@ -54,24 +68,28 @@
         }
       },
       "event": [
-        { "listen": "test",
+        {
+          "listen": "test",
           "script": {
+            "type": "text/javascript",
             "exec": [
               "pm.test(\"200 OK\", function () {",
               "  pm.response.to.have.status(200);",
               "});",
+              "",
               "pm.test(\"Body has same uuid\", function () {",
-              "  pm.expect(pm.response.json().uuid).to.eql(pm.collectionVariables.get('userId'));",
+              "  pm.expect(pm.response.json().user.uuid)",
+              "    .to.eql(pm.collectionVariables.get('userId'));",
               "});",
-              "// Смотри логи приложения: это первый GET → должен быть SQL select"
-            ],
-            "type": "text/javascript"
+              "",
+              "// Первый GET → должен быть SQL select (см. логи)"
+            ]
           }
         }
       ]
     },
     {
-      "name": "3. GET user (HIT → из кэша)",
+      "name": "3. GET user (HIT → cache)",
       "request": {
         "method": "GET",
         "url": {
@@ -82,15 +100,17 @@
         }
       },
       "event": [
-        { "listen": "test",
+        {
+          "listen": "test",
           "script": {
+            "type": "text/javascript",
             "exec": [
               "pm.test(\"200 OK (cache HIT)\", function () {",
               "  pm.response.to.have.status(200);",
               "});",
-              "// Во втором GET Hibernate SQL в логах быть не должно, ответ из Redis"
-            ],
-            "type": "text/javascript"
+              "",
+              "// Второй GET → Hibernate SQL в логах быть не должно"
+            ]
           }
         }
       ]
@@ -100,34 +120,41 @@
       "request": {
         "method": "PUT",
         "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": { "raw": "{{baseUrl}}/userDetailsUpdate", "host": ["{{baseUrl}}"], "path": ["userDetailsUpdate"] },
+        "url": {
+          "raw": "{{baseUrl}}/userDetailsUpdate",
+          "host": ["{{baseUrl}}"],
+          "path": ["userDetailsUpdate"]
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"uuid\": \"{{userId}}\",\n  \"fio\": \"Тест Тестов Обновлённый\",\n  \"phoneNumber\": \"+79005557788\",\n  \"avatar\": \"https://via.placeholder.com/300\",\n  \"role\": \"ROLE_ADMIN\"\n}"
         }
       },
       "event": [
-        { "listen": "test",
+        {
+          "listen": "test",
           "script": {
+            "type": "text/javascript",
             "exec": [
               "pm.test(\"200 OK\", function () {",
               "  pm.response.to.have.status(200);",
               "});",
+              "",
               "pm.test(\"Updated fields present\", function () {",
-              "  const b = pm.response.json();",
+              "  const b = pm.response.json().user;",
               "  pm.expect(b.fio).to.eql('Тест Тестов Обновлённый');",
               "  pm.expect(b.phoneNumber).to.eql('+79005557788');",
               "  pm.expect(b.role).to.eql('ROLE_ADMIN');",
               "});",
-              "// Кэш должен сразу содержать обновлённые данные (CachePut)"
-            ],
-            "type": "text/javascript"
+              "",
+              "// CachePut → кэш должен содержать обновлённые данные"
+            ]
           }
         }
       ]
     },
     {
-      "name": "5. GET after UPDATE (HIT обновлённый)",
+      "name": "5. GET after UPDATE (HIT updated)",
       "request": {
         "method": "GET",
         "url": {
@@ -138,20 +165,22 @@
         }
       },
       "event": [
-        { "listen": "test",
+        {
+          "listen": "test",
           "script": {
+            "type": "text/javascript",
             "exec": [
               "pm.test(\"200 OK\", function () {",
               "  pm.response.to.have.status(200);",
               "});",
+              "",
               "pm.test(\"Data is updated (from cache)\", function () {",
-              "  const b = pm.response.json();",
+              "  const b = pm.response.json().user;",
               "  pm.expect(b.fio).to.eql('Тест Тестов Обновлённый');",
               "  pm.expect(b.phoneNumber).to.eql('+79005557788');",
               "  pm.expect(b.role).to.eql('ROLE_ADMIN');",
               "});"
-            ],
-            "type": "text/javascript"
+            ]
           }
         }
       ]
@@ -168,14 +197,15 @@
         }
       },
       "event": [
-        { "listen": "test",
+        {
+          "listen": "test",
           "script": {
+            "type": "text/javascript",
             "exec": [
               "pm.test(\"204 No Content\", function () {",
               "  pm.response.to.have.status(204);",
               "});"
-            ],
-            "type": "text/javascript"
+            ]
           }
         }
       ]
@@ -192,14 +222,15 @@
         }
       },
       "event": [
-        { "listen": "test",
+        {
+          "listen": "test",
           "script": {
+            "type": "text/javascript",
             "exec": [
               "pm.test(\"404 Not Found\", function () {",
               "  pm.response.to.have.status(404);",
               "});"
-            ],
-            "type": "text/javascript"
+            ]
           }
         }
       ]
@@ -209,21 +240,26 @@
       "request": {
         "method": "POST",
         "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": { "raw": "{{baseUrl}}/createNewUser", "host": ["{{baseUrl}}"], "path": ["createNewUser"] },
+        "url": {
+          "raw": "{{baseUrl}}/createNewUser",
+          "host": ["{{baseUrl}}"],
+          "path": ["createNewUser"]
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"fio\": \"Невалид Телефон\",\n  \"phoneNumber\": \"8900-abc-123\",\n  \"avatar\": \"https://via.placeholder.com/150\",\n  \"role\": \"ROLE_USER\"\n}"
         }
       },
       "event": [
-        { "listen": "test",
+        {
+          "listen": "test",
           "script": {
+            "type": "text/javascript",
             "exec": [
               "pm.test(\"400 Bad Request\", function () {",
               "  pm.response.to.have.status(400);",
               "});"
-            ],
-            "type": "text/javascript"
+            ]
           }
         }
       ]
@@ -233,21 +269,26 @@
       "request": {
         "method": "POST",
         "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": { "raw": "{{baseUrl}}/createNewUser", "host": ["{{baseUrl}}"], "path": ["createNewUser"] },
+        "url": {
+          "raw": "{{baseUrl}}/createNewUser",
+          "host": ["{{baseUrl}}"],
+          "path": ["createNewUser"]
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"fio\": \"Невалид URL\",\n  \"phoneNumber\": \"+79001234567\",\n  \"avatar\": \"not-a-url\",\n  \"role\": \"ROLE_USER\"\n}"
         }
       },
       "event": [
-        { "listen": "test",
+        {
+          "listen": "test",
           "script": {
+            "type": "text/javascript",
             "exec": [
               "pm.test(\"400 Bad Request\", function () {",
               "  pm.response.to.have.status(400);",
               "});"
-            ],
-            "type": "text/javascript"
+            ]
           }
         }
       ]
@@ -256,17 +297,22 @@
       "name": "10. GET missing param (400)",
       "request": {
         "method": "GET",
-        "url": { "raw": "{{baseUrl}}/users", "host": ["{{baseUrl}}"], "path": ["users"] }
+        "url": {
+          "raw": "{{baseUrl}}/users",
+          "host": ["{{baseUrl}}"],
+          "path": ["users"]
+        }
       },
       "event": [
-        { "listen": "test",
+        {
+          "listen": "test",
           "script": {
+            "type": "text/javascript",
             "exec": [
               "pm.test(\"400 Bad Request\", function () {",
               "  pm.response.to.have.status(400);",
               "});"
-            ],
-            "type": "text/javascript"
+            ]
           }
         }
       ]
@@ -283,14 +329,15 @@
         }
       },
       "event": [
-        { "listen": "test",
+        {
+          "listen": "test",
           "script": {
+            "type": "text/javascript",
             "exec": [
               "pm.test(\"400 Bad Request\", function () {",
               "  pm.response.to.have.status(400);",
               "});"
-            ],
-            "type": "text/javascript"
+            ]
           }
         }
       ]
@@ -300,21 +347,26 @@
       "request": {
         "method": "PUT",
         "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": { "raw": "{{baseUrl}}/userDetailsUpdate", "host": ["{{baseUrl}}"], "path": ["userDetailsUpdate"] },
+        "url": {
+          "raw": "{{baseUrl}}/userDetailsUpdate",
+          "host": ["{{baseUrl}}"],
+          "path": ["userDetailsUpdate"]
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"uuid\": \"{{badUserId}}\",\n  \"fio\": \"Я Не Существую\",\n  \"phoneNumber\": \"+79009998877\",\n  \"avatar\": \"https://via.placeholder.com/150\",\n  \"role\": \"ROLE_USER\"\n}"
         }
       },
       "event": [
-        { "listen": "test",
+        {
+          "listen": "test",
           "script": {
+            "type": "text/javascript",
             "exec": [
               "pm.test(\"404 Not Found\", function () {",
               "  pm.response.to.have.status(404);",
               "});"
-            ],
-            "type": "text/javascript"
+            ]
           }
         }
       ]
@@ -331,14 +383,15 @@
         }
       },
       "event": [
-        { "listen": "test",
+        {
+          "listen": "test",
           "script": {
+            "type": "text/javascript",
             "exec": [
               "pm.test(\"404 Not Found\", function () {",
               "  pm.response.to.have.status(404);",
               "});"
-            ],
-            "type": "text/javascript"
+            ]
           }
         }
       ]

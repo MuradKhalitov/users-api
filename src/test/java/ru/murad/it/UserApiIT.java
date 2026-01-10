@@ -65,12 +65,12 @@ class UserApiIT {
                 .andReturn();
 
         var json = createRs.getResponse().getContentAsString();
-        var id = om.readTree(json).get("uuid").asText();
+        var id = om.readTree(json).get("user").get("uuid").asText();
 
         // GET (MISS -> наполняем кэш)
         mvc.perform(get("/api/users").param("userID", id))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.fio").value("IT Test"));
+                .andExpect(jsonPath("$.user.fio").value("IT Test"));
 
         // UPDATE (CachePut)
         var update = """
@@ -80,13 +80,13 @@ class UserApiIT {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(update))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.fio").value("IT Test Updated"))
-                .andExpect(jsonPath("$.role").value("ROLE_ADMIN"));
+                .andExpect(jsonPath("$.user.fio").value("IT Test Updated"))
+                .andExpect(jsonPath("$.user.role").value("ROLE_ADMIN"));
 
         // GET after UPDATE (должны увидеть обновлённые данные — попали в кэш)
         mvc.perform(get("/api/users").param("userID", id))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.role").value("ROLE_ADMIN"));
+                .andExpect(jsonPath("$.user.role").value("ROLE_ADMIN"));
 
         // DELETE (CacheEvict)
         mvc.perform(delete("/api/users").param("userID", id))
