@@ -6,15 +6,14 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
-import ru.murad.dto.UserCreateRequestDto;
-import ru.murad.dto.UserResponseDto;
-import ru.murad.dto.UserUpdateRequestDto;
+import ru.murad.dto.*;
 import ru.murad.exception.UserNotFoundException;
 import ru.murad.mapper.UserMapper;
 import ru.murad.model.Role;
 import ru.murad.model.User;
 import ru.murad.repository.RoleRepository;
 import ru.murad.repository.UserRepository;
+import ru.murad.service.KafkaProducerService;
 import ru.murad.service.UserService;
 
 import java.util.UUID;
@@ -26,6 +25,7 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final UserMapper userMapper;
+    private final KafkaProducerService kafkaProducerService;
 
     @Override
     @Transactional
@@ -37,11 +37,17 @@ public class UserServiceImpl implements UserService {
                 .uuid(UUID.randomUUID())
                 .fio(request.fio())
                 .phoneNumber(request.phoneNumber())
+                .email(request.email())
                 .avatar(request.avatar())
                 .role(role)
                 .build();
 
         User saved = userRepository.save(user);
+
+        kafkaProducerService.sendUserEvent(
+                new UserEvent(EventType.USER_CREATED, saved.getEmail(), saved.getFio())
+        );
+
         return userMapper.toDto(saved);
     }
 
@@ -62,6 +68,7 @@ public class UserServiceImpl implements UserService {
 
         user.setFio(request.fio());
         user.setPhoneNumber(request.phoneNumber());
+        user.setEmail(request.email());
         user.setAvatar(request.avatar());
         user.setRole(resolveOrCreateRole(request.role()));
 
@@ -80,6 +87,8 @@ public class UserServiceImpl implements UserService {
         if (userRepository.countByRole(user.getRole()) == 0) {
             roleRepository.delete(user.getRole());
         }
+        UserEvent event = new UserEvent(EventType.USER_DELETED, user.getEmail(), user.getFio());
+        kafkaProducerService.sendUserEvent(event);
     }
 
     private Role resolveOrCreateRole(String roleName) {

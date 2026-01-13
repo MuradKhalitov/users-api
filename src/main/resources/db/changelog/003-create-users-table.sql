@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS user_schema.users (
    uuid                 UUID PRIMARY KEY,
    fio                  VARCHAR(100) NOT NULL,
    phone_number         VARCHAR(20) NOT NULL,
+   email                VARCHAR(100) UNIQUE NOT NULL,
    avatar               VARCHAR(255),
    role_id UUID NOT NULL REFERENCES user_schema.roles(uuid) ON DELETE CASCADE
 );
