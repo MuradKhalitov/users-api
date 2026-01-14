@@ -40,7 +40,13 @@ class UserControllerTest {
         UUID id = UUID.randomUUID();
 
         UserResponseDto response =
-                new UserResponseDto(id, "FIO", "+79001234567", "https://img", "ROLE_USER");
+                new UserResponseDto(
+                        id,
+                        "FIO",
+                        "+79001234567",
+                        "test@example.com",
+                        "https://img",
+                        "ROLE_USER");
 
         Mockito.when(userService.createUser(any(UserCreateRequestDto.class)))
                 .thenReturn(response);
@@ -49,8 +55,11 @@ class UserControllerTest {
                 .thenReturn(new UserHateoasDto(response));
 
         var body = new UserCreateRequestDto(
-                "FIO", "+79001234567", "https://img", "ROLE_USER"
-        );
+                "FIO",
+                "+79001234567",
+                "test@example.com",
+                "https://img",
+                "ROLE_USER");
 
         mvc.perform(post("/api/createNewUser")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -88,11 +97,15 @@ class UserControllerTest {
         UUID id = UUID.randomUUID();
 
         var req = new UserUpdateRequestDto(
-                id, "New FIO","+79005557788","https://img2","ROLE_ADMIN"
-        );
+                id,
+                "New FIO",
+                "+79005557788",
+                "test@example.com",
+                "https://img2",
+                "ROLE_ADMIN");
 
         UserResponseDto response =
-                new UserResponseDto(id, req.fio(), req.phoneNumber(), req.avatar(), req.role());
+                new UserResponseDto(id, req.fio(), req.phoneNumber(), req.email(), req.avatar(), req.role());
 
         Mockito.when(userService.updateUser(any(UserUpdateRequestDto.class)))
                 .thenReturn(response);

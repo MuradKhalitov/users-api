@@ -1,6 +1,7 @@
 package ru.murad.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -24,6 +25,11 @@ public record UserUpdateRequestDto(
         @NotBlank(message = "Телефон обязателен")
         @Pattern(regexp = "^[+]?\\d{10,15}$", message = "Телефон должен быть в формате +XXXXXXXXXXX (10-15 цифр)")
         String phoneNumber,
+
+        @Schema(description = "Email пользователя", example = "user@example.com")
+        @NotBlank(message = "Email обязателен")
+        @Email(message = "Email должен быть валидным")
+        String email,
 
         @Schema(description = "URL аватара пользователя", example = "https://example.com/avatar.jpg")
         @NotBlank(message = "Avatar url обязателен")

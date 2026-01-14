@@ -26,6 +26,9 @@ public class UserResponseDto {
     @Schema(description = "Номер телефона", example = "+79161234567")
     private String phoneNumber;
 
+    @Schema(description = "Email", example = "test@example.com")
+    private String email;
+
     @Schema(description = "URL аватара пользователя", example = "https://example.com/avatar.jpg")
     private String avatar;
 

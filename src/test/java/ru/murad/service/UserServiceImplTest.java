@@ -14,7 +14,8 @@ import ru.murad.service.impl.UserServiceImpl;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
 class UserServiceImplTest {
@@ -23,9 +24,10 @@ class UserServiceImplTest {
     void delete_not_found_throws() {
         var userRepo = mock(UserRepository.class);
         var roleRepo = mock(RoleRepository.class);
-        var mapper  = mock(UserMapper.class);
+        var mapper = mock(UserMapper.class);
+        var kafkaProducer = mock(KafkaProducerService.class);
 
-        var service = new UserServiceImpl(userRepo, roleRepo, mapper);
+        var service = new UserServiceImpl(userRepo, roleRepo, mapper, kafkaProducer);
         UUID id = UUID.randomUUID();
         when(userRepo.findById(id)).thenReturn(Optional.empty());
 
@@ -36,7 +38,8 @@ class UserServiceImplTest {
     void create_resolves_or_creates_role() {
         var userRepo = mock(UserRepository.class);
         var roleRepo = mock(RoleRepository.class);
-        var mapper  = mock(UserMapper.class);
+        var mapper = mock(UserMapper.class);
+        var kafkaProducer = mock(KafkaProducerService.class);
 
         when(roleRepo.findByRoleName("ROLE_USER")).thenReturn(Optional.empty());
         when(roleRepo.save(any(Role.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -48,12 +51,17 @@ class UserServiceImplTest {
         when(mapper.toDto(any(User.class))).thenAnswer(inv -> {
             User u = inv.getArgument(0);
             return new ru.murad.dto.UserResponseDto(
-                    u.getUuid(), u.getFio(), u.getPhoneNumber(), u.getAvatar(), u.getRole().getRoleName());
+                    u.getUuid(), u.getFio(), u.getPhoneNumber(), u.getEmail(), u.getAvatar(), u.getRole().getRoleName());
         });
 
-        var service = new UserServiceImpl(userRepo, roleRepo, mapper);
+        var service = new UserServiceImpl(userRepo, roleRepo, mapper, kafkaProducer);
 
-        var dto = new UserCreateRequestDto("FIO","+79001234567","https://img","ROLE_USER");
+        var dto = new UserCreateRequestDto(
+                "FIO",
+                "+79001234567",
+                "test@example.com",
+                "https://img",
+                "ROLE_USER");
         var rs = service.createUser(dto);
 
         assertEquals("ROLE_USER", rs.getRole());
@@ -65,13 +73,21 @@ class UserServiceImplTest {
     void update_not_found_throws() {
         var userRepo = mock(UserRepository.class);
         var roleRepo = mock(RoleRepository.class);
-        var mapper  = mock(UserMapper.class);
+        var mapper = mock(UserMapper.class);
+        var kafkaProducer = mock(KafkaProducerService.class);
 
-        var service = new UserServiceImpl(userRepo, roleRepo, mapper);
+
+        var service = new UserServiceImpl(userRepo, roleRepo, mapper, kafkaProducer);
         UUID id = UUID.randomUUID();
         when(userRepo.findById(id)).thenReturn(Optional.empty());
 
-        var req = new UserUpdateRequestDto(id,"F","+79001234567","https://img","ROLE_USER");
+        var req = new UserUpdateRequestDto(
+                id,
+                "F",
+                "+79001234567",
+                "test@example.com",
+                "https://img",
+                "ROLE_USER");
         assertThrows(UserNotFoundException.class, () -> service.updateUser(req));
     }
 }
